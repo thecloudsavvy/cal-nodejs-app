@@ -1,0 +1,47 @@
+name: CI
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      # - name: Generate random version number
+      #   run: |
+      #     APP_VERSION=$RANDOM
+      #     echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 12
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Log into Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build Docker image
+        env:
+          IMAGE_NAME: test-image
+          USERNAME: monyslim
+          VERSION: 200
+        run: |
+          # echo ${{ env.APP_VERSION }}
+          docker build -t $USERNAME/$IMAGE_NAME:$VERSION .
+
+      - name: Push Docker image to Docker Hub
+        env:
+          IMAGE_NAME: test-image
+          USERNAME: monyslim
+          VERSION: 200
+        run: |
+          docker push $USERNAME/$IMAGE_NAME:$VERSION

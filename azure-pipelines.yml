@@ -1,0 +1,61 @@
+trigger:
+  - master
+
+pool:
+  name: 'runner'
+
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildJob
+        pool:
+          name: 'runner'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '14.x'
+            displayName: 'Use Node.js 14.x'
+
+          - script: |
+              npm install
+              npm run build
+            displayName: 'Install and Build'
+
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+              replaceExistingArchive: true
+            displayName: 'Archive Build Artifacts'
+
+          - publish: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+            artifact: drop
+            displayName: 'Publish Artifacts'
+
+  - stage: Deploy
+    dependsOn: Build
+    jobs:
+      - deployment: DeployWebApp
+        pool:
+          name: 'runner'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+                  displayName: 'Download Artifacts'
+
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: 'node_server'
+                    appType: 'webAppLinux'
+                    appName: 'webapp-v1-new'
+                    runtimeStack: 'Node - 20-lts'
+                    package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
+                  displayName: 'Deploy to Azure Web App'
+
+
